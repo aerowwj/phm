@@ -338,6 +338,8 @@ safe-buffer/index.js:
     var started = false;
     var lastRpmSeen = 0;
     var lastMessageAt = Date.now();
+    var lastConnectAt = 0;
+    var lastRebuildAt = 0;
 
     var statusMap = {
         '优秀': 'EXCELLENT',
@@ -474,6 +476,7 @@ safe-buffer/index.js:
             return;
         }
         lastMessageAt = Date.now();
+        setConnStatus('online');
 
         var serverTs = Number(msg.ts) * 1000;
         document.getElementById('latency').innerText = Math.max(0, Date.now() - serverTs);
@@ -562,6 +565,82 @@ safe-buffer/index.js:
         URL.revokeObjectURL(link.href);
     }
 
+    function setConnStatus(state) {
+        var dot = document.getElementById('connDot');
+        var text = document.getElementById('connText');
+        if (!dot || !text) return;
+        if (state === 'online') {
+            dot.classList.add('on');
+            text.innerText = '在线';
+            text.style.color = '';
+        } else if (state === 'waiting') {
+            dot.classList.add('on');
+            text.innerText = '等待数据';
+            text.style.color = '#f59e0b';
+        } else if (state === 'reconnecting') {
+            dot.classList.remove('on');
+            text.innerText = '重连中';
+            text.style.color = '';
+        } else {
+            dot.classList.remove('on');
+            text.innerText = '离线';
+            text.style.color = '';
+        }
+    }
+
+    function buildMqttClient() {
+        var c = mqtt.connect(MQTT_BROKER, {
+            clientId: 'lx1_public_' + Date.now().toString(36) + Math.random().toString(16).slice(2, 8),
+            keepalive: 60,
+            reconnectPeriod: 2000,
+            connectTimeout: 10000,
+            clean: true,
+            timerVariant: 'worker'
+        });
+        c.on('connect', function () {
+            if (c !== client) return;
+            lastConnectAt = Date.now();
+            lastMessageAt = Date.now();
+            setConnStatus('waiting');
+            c.subscribe(MQTT_TOPIC);
+        });
+        c.on('reconnect', function () {
+            if (c !== client) return;
+            setConnStatus('reconnecting');
+        });
+        c.on('offline', function () {
+            if (c !== client) return;
+            setConnStatus('offline');
+        });
+        c.on('close', function () {
+            if (c !== client) return;
+            setConnStatus('reconnecting');
+        });
+        c.on('error', function (err) {
+            if (c !== client) return;
+            console.warn('mqtt error', err);
+        });
+        c.on('message', function (topic, payload) {
+            if (c !== client) return;
+            handleMessage(topic, payload);
+        });
+        return c;
+    }
+
+    function rebuildMqttClient(reason) {
+        var now = Date.now();
+        if (now - lastRebuildAt < 60000) return;
+        lastRebuildAt = now;
+        console.warn('rebuild MQTT client:', reason);
+        var old = client;
+        client = null;
+        if (old) {
+            try { old.removeAllListeners(); } catch (e) {}
+            try { old.end(true); } catch (e) {}
+        }
+        client = buildMqttClient();
+    }
+
     function startApp() {
         if (started) return;
         started = true;
@@ -586,72 +665,51 @@ safe-buffer/index.js:
             }
         }, 1000);
 
-        client = mqtt.connect(MQTT_BROKER, {
-            clientId: 'lx1_public_' + Math.random().toString(16).slice(2),
-            keepalive: 60,
-            reconnectPeriod: 2000,
-            connectTimeout: 10000,
-            clean: true,
-            timerVariant: 'worker'
-        });
+        client = buildMqttClient();
 
-        client.on('connect', function () {
-            document.getElementById('connDot').classList.add('on');
-            document.getElementById('connText').innerText = '在线';
-            client.subscribe(MQTT_TOPIC);
-        });
-        client.on('reconnect', function () {
-            document.getElementById('connText').innerText = '重连中';
-        });
-        client.on('offline', function () {
-            document.getElementById('connDot').classList.remove('on');
-            document.getElementById('connText').innerText = '离线';
-        });
-        client.on('error', function (err) {
-            console.warn('mqtt error', err);
-        });
-
-        function recreateMqttClient() {
-            if (!client) return;
-            var onConnect = client.listeners('connect')[0];
-            var onOffline = client.listeners('offline')[0];
-            var onMessage = client.listeners('message')[0];
-            if (!onMessage) return;
-            try { client.end(true); } catch (e) {}
-            client = mqtt.connect(MQTT_BROKER, {
-                clientId: 'lx1_public_' + Date.now().toString(36) + Math.random().toString(16).slice(2, 8),
-                keepalive: 60,
-                reconnectPeriod: 2000,
-                connectTimeout: 10000,
-                clean: true,
-                timerVariant: 'worker'
-            });
-            if (onConnect) client.on('connect', onConnect);
-            if (onOffline) client.on('offline', onOffline);
-            if (onMessage) client.on('message', onMessage);
-            client.on('reconnect', function () {
-                document.getElementById('connText').innerText = '重连中';
-            });
-            client.on('close', function () { console.warn('MQTT connection closed'); });
-            client.on('error', function (err) { console.warn('mqtt error', err); });
-        }
-
+        // 连接正常但暂时没有数据时只显示“等待数据”，不反复重建连接。
+        // EC100 重启通常只需等待其重新上线，避免高频重建造成 WebSocket 堆积。
         setInterval(function () {
-            if (Date.now() - lastMessageAt > 15000) {
-                console.warn('MQTT data timeout, recreating client');
-                lastMessageAt = Date.now();
-                recreateMqttClient();
+            var now = Date.now();
+            var dataAge = now - lastMessageAt;
+            if (!client) {
+                rebuildMqttClient('no client');
+                return;
             }
-        }, 5000);
-        client.on('message', handleMessage);
+            if (!client.connected) {
+                setConnStatus('reconnecting');
+                if (dataAge > 60000) rebuildMqttClient('offline');
+                return;
+            }
+            if (dataAge > 10000) {
+                setConnStatus('waiting');
+            } else {
+                setConnStatus('online');
+            }
+            // 客户端显示已连接但长时间无数据，5 分钟后做一次兜底重建
+            if (dataAge > 300000 && now - lastRebuildAt > 300000) {
+                rebuildMqttClient('connected but no data');
+            }
+        }, 2000);
 
-        // 手机/平板从后台恢复时，浏览器可能已冻结 WebSocket
+        // 手机/平板从后台恢复，或浏览器网络恢复时，主动检查连接
         document.addEventListener('visibilitychange', function () {
             if (document.visibilityState !== 'visible') return;
+            var stale = Date.now() - lastMessageAt > 10000;
             lastMessageAt = Date.now();
-            if (!client || !client.connected) {
-                console.warn('page resumed, reconnecting MQTT');
-                recreateMqttClient();
+            if (!client) {
+                rebuildMqttClient('resume');
+            } else if (!client.connected || stale) {
+                try { client.reconnect(); } catch (e) { rebuildMqttClient('resume'); }
+            } else {
+                setConnStatus('waiting');
+            }
+        });
+        window.addEventListener('online', function () {
+            if (!client) {
+                rebuildMqttClient('browser online');
+            } else if (!client.connected) {
+                try { client.reconnect(); } catch (e) { rebuildMqttClient('browser online'); }
             }
         });
     }
