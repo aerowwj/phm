@@ -337,7 +337,7 @@ safe-buffer/index.js:
     var client = null;
     var started = false;
     var lastRpmSeen = 0;
-    var lastMessageAt = Date.now();
+    var lastMessageAt = 0;
     var lastConnectAt = 0;
     var lastRebuildAt = 0;
 
@@ -600,7 +600,6 @@ safe-buffer/index.js:
         c.on('connect', function () {
             if (c !== client) return;
             lastConnectAt = Date.now();
-            lastMessageAt = Date.now();
             setConnStatus('waiting');
             c.subscribe(MQTT_TOPIC);
         });
@@ -681,13 +680,13 @@ safe-buffer/index.js:
                 if (dataAge > 60000) rebuildMqttClient('offline');
                 return;
             }
-            if (dataAge > 10000) {
+            if (!lastMessageAt || dataAge > 10000) {
                 setConnStatus('waiting');
             } else {
                 setConnStatus('online');
             }
             // 客户端显示已连接但长时间无数据，5 分钟后做一次兜底重建
-            if (dataAge > 300000 && now - lastRebuildAt > 300000) {
+            if (lastMessageAt && dataAge > 300000 && now - lastRebuildAt > 300000) {
                 rebuildMqttClient('connected but no data');
             }
         }, 2000);
@@ -695,14 +694,16 @@ safe-buffer/index.js:
         // 手机/平板从后台恢复，或浏览器网络恢复时，主动检查连接
         document.addEventListener('visibilitychange', function () {
             if (document.visibilityState !== 'visible') return;
-            var stale = Date.now() - lastMessageAt > 10000;
-            lastMessageAt = Date.now();
+            var stale = !lastMessageAt || Date.now() - lastMessageAt > 10000;
             if (!client) {
                 rebuildMqttClient('resume');
             } else if (!client.connected || stale) {
+                // 页面恢复时强制重连，但不把“刚连上”误判为“有数据”
+                lastRebuildAt = Date.now();
+                setConnStatus('waiting');
                 try { client.reconnect(); } catch (e) { rebuildMqttClient('resume'); }
             } else {
-                setConnStatus('waiting');
+                setConnStatus('online');
             }
         });
         window.addEventListener('online', function () {
