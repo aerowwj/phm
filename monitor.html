@@ -112,9 +112,7 @@
 
     /* 卡片 */
     .main {
-        flex: 1; min-height: 0; padding: 12px; overflow: auto;
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior: contain;
+        flex: 1; min-height: 0; padding: 12px; overflow: hidden;
     }
     .grid {
         display: grid;
@@ -176,84 +174,127 @@
     .c-warn { color: var(--warn); }
     .c-bad { color: var(--bad); }
 
-    /* 平板横屏 / 小笔记本：4 列，按内容高度滚动 */
+    /* 平板横屏 / 小笔记本：4 列 × 3 行，一屏显示 12 张 */
     @media (max-width: 1200px) {
         .grid {
             grid-template-columns: repeat(4, minmax(0, 1fr));
-            grid-template-rows: none;
-            grid-auto-rows: minmax(190px, 1fr);
+            grid-template-rows: repeat(3, minmax(0, 1fr));
         }
     }
-    /* 平板竖屏：3 列 */
+    /* 平板竖屏：3 列 × 4 行，一屏显示 12 张 */
     @media (max-width: 820px) {
         .grid {
             grid-template-columns: repeat(3, minmax(0, 1fr));
-            grid-auto-rows: minmax(190px, 1fr);
+            grid-template-rows: repeat(4, minmax(0, 1fr));
         }
         h1 { font-size: 1rem; }
         header { padding-left: 12px; padding-right: 12px; }
     }
-    /* 手机：2 列，卡片可滚动，不再强行塞进一屏 */
+    /* 手机：2 列 × 6 行，一屏显示 12 张 */
     @media (max-width: 600px) {
         header {
-            height: auto; min-height: 56px;
-            flex-wrap: wrap; padding: 8px 10px; gap: 6px 10px;
+            height: auto; min-height: 52px;
+            flex-wrap: wrap; padding: 6px 8px; gap: 4px 8px;
         }
         .header-left {
             flex: 1 1 100%; justify-content: space-between;
-            gap: 10px; flex-wrap: wrap;
+            gap: 8px; flex-wrap: wrap;
         }
         .header-right {
             flex: 1 1 100%; justify-content: space-between;
-            gap: 6px; flex-wrap: wrap;
+            gap: 4px; flex-wrap: wrap;
         }
         .header-right .status-item { flex: 1 1 auto; justify-content: center; }
-        h1 { font-size: 1.05rem; letter-spacing: 0.5px; }
-        .status-item { font-size: 0.8rem; padding: 4px 8px; }
-        .btn { padding: 9px 12px; }
-        .main {
-            padding: 8px;
-            padding-bottom: calc(8px + env(safe-area-inset-bottom));
-        }
+        h1 { font-size: 1rem; letter-spacing: 0.5px; }
+        .status-item { font-size: 0.76rem; padding: 3px 7px; }
+        .btn { padding: 7px 10px; font-size: 0.8rem; }
+        .main { padding: 6px; }
         .grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            grid-template-rows: none;
-            grid-auto-rows: minmax(175px, auto);
-            gap: 8px; height: auto;
+            grid-template-rows: repeat(6, minmax(0, 1fr));
+            gap: 6px;
         }
-        .card { padding: 8px 10px; border-radius: 8px; }
-        .rotor-id { font-size: 0.78rem; }
-        .rotor-rpm { font-size: 0.72rem; margin-right: 0; }
-        .score { font-size: clamp(2.1rem, 9vw, 3.2rem); }
-        .status { font-size: 0.72rem; padding: 2px 8px; }
-        .metrics { gap: 3px 6px; padding: 5px 6px; }
-        .m-title { font-size: 0.58rem; }
-        .m-val { font-size: clamp(0.72rem, 3.2vw, 0.9rem); }
+        .card { padding: 5px 7px; border-radius: 7px; }
+        .card-head { gap: 4px; }
+        .rotor-id { font-size: 0.68rem; }
+        .rotor-rpm { font-size: 0.62rem; margin-right: 0; }
+        .dot { width: 7px; height: 7px; }
+        /* 评分与状态横排，压缩卡片高度 */
+        .score-section { flex-direction: row; align-items: center; justify-content: center; gap: 6px; }
+        .score { font-size: clamp(1.5rem, 5.5vh, 2.4rem); }
+        .status { margin-top: 0; padding: 1px 6px; font-size: 0.62rem; }
+        .metrics { padding: 3px 4px; gap: 1px 4px; border-radius: 5px; }
+        .m-title { font-size: 0.48rem; }
+        .m-val { font-size: clamp(0.58rem, 2.2vw, 0.75rem); }
+        .m-unit { font-size: 0.65em; margin-left: 1px; }
         .lock-box { padding: 22px; }
     }
-    /* 小屏手机：缩小卡片头部字号，避免 2 列时挤出边界 */
+    /* 小屏手机：进一步压缩字号，仍保持 2 列 × 6 行 */
     @media (max-width: 380px) {
-        .rotor-id { font-size: 0.72rem; }
-        .rotor-rpm { font-size: 0.68rem; }
-        .card-head { gap: 6px; }
+        .rotor-id { font-size: 0.62rem; }
+        .rotor-rpm { font-size: 0.56rem; }
+        .score { font-size: clamp(1.35rem, 5.2vh, 2rem); }
+        .status { font-size: 0.56rem; padding: 1px 5px; }
+        .m-title { font-size: 0.44rem; }
+        .m-val { font-size: 0.58rem; }
+        .card { padding: 4px 6px; }
+        .grid { gap: 5px; }
     }
-    /* 窄屏手机：1 列，保证数据可读 */
+    /* 窄屏手机：仍保持 2 列，保证一屏 12 张卡片 */
     @media (max-width: 340px) {
-        .grid {
-            grid-template-columns: 1fr;
-            grid-auto-rows: minmax(170px, auto);
-        }
+        .rotor-id { font-size: 0.58rem; }
+        .rotor-rpm { font-size: 0.52rem; }
+        .m-title { font-size: 0.4rem; }
+        .m-val { font-size: 0.54rem; }
+        .score { font-size: 1.2rem; }
+        .status { font-size: 0.52rem; padding: 0 4px; }
         .header-right { justify-content: flex-start; }
         .header-right .status-item { flex: 0 1 auto; }
     }
-    /* 手机横屏等低高度场景：压缩卡片内边距，允许滚动 */
+    /* 手机短屏：进一步压缩顶栏和卡片，避免出现滚动 */
+    @media (max-width: 600px) and (max-height: 700px) {
+        header { padding: 4px 7px; gap: 3px 6px; }
+        h1 { font-size: 0.92rem; }
+        .status-item { font-size: 0.7rem; padding: 2px 6px; }
+        .btn { padding: 5px 8px; font-size: 0.74rem; }
+        .main { padding: 4px; }
+        .grid { gap: 4px; }
+        .card { padding: 3px 5px; }
+        .score { font-size: clamp(1.1rem, 4.8vh, 1.7rem); }
+        .status { font-size: 0.56rem; padding: 0 4px; }
+        .metrics { padding: 2px 3px; gap: 0 3px; }
+        .m-title { font-size: 0.42rem; }
+        .m-val { font-size: 0.56rem; }
+    }
+    /* 低高度平板/小笔记本：紧凑卡片，仍保持 12 张一屏 */
+    @media (max-height: 700px) and (min-width: 601px) {
+        .card { padding: 5px 7px; }
+        .score-section { flex-direction: row; align-items: center; justify-content: center; gap: 6px; }
+        .score { font-size: clamp(1.4rem, 5vh, 2.2rem); }
+        .status { margin-top: 0; padding: 1px 6px; font-size: 0.65rem; }
+        .metrics { padding: 3px 5px; gap: 1px 5px; }
+        .m-title { font-size: 0.5rem; }
+        .m-val { font-size: 0.68rem; }
+    }
+    /* 手机横屏：6 列 × 2 行，一屏显示 12 张 */
     @media (max-height: 520px) and (orientation: landscape) {
-        .main { padding: 6px 8px; }
-        .grid { gap: 8px; }
-        .card { padding: 6px 8px; }
-        .score { font-size: clamp(1.8rem, 8vh, 2.8rem); }
-        .metrics { padding: 4px 6px; gap: 2px 6px; }
-        .m-title { font-size: 0.55rem; }
+        .main { padding: 5px; }
+        .grid {
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            grid-template-rows: repeat(2, minmax(0, 1fr));
+            gap: 5px;
+        }
+        .card { padding: 3px 5px; border-radius: 6px; }
+        .rotor-id { font-size: 0.58rem; }
+        .rotor-rpm { font-size: 0.52rem; }
+        .card-head { gap: 3px; }
+        .score-section { gap: 4px; }
+        .score { font-size: clamp(1.2rem, 6vh, 1.8rem); }
+        .status { font-size: 0.54rem; padding: 0 4px; }
+        .metrics { padding: 2px 3px; gap: 0 3px; }
+        .m-title { font-size: 0.42rem; }
+        .m-val { font-size: 0.56rem; }
+        .m-unit { font-size: 0.6em; }
     }
     @media (hover: none) {
         .btn:hover { background: linear-gradient(135deg, #334155, #1e293b); }
@@ -340,6 +381,9 @@ safe-buffer/index.js:
     var lastMessageAt = 0;
     var lastConnectAt = 0;
     var lastRebuildAt = 0;
+    var lastCoolingAt = 0;
+    var dpOnline = [0, 0, 0];
+    var fcuOnline = 0;
 
     var statusMap = {
         '优秀': 'EXCELLENT',
@@ -467,6 +511,53 @@ safe-buffer/index.js:
         }
     }
 
+    function updateCoolingStatus(compact, cooling) {
+        var now = Date.now();
+        lastCoolingAt = now;
+        if (compact) {
+            var h = Array.isArray(compact.h) ? compact.h : [];
+            dpOnline = [0, 1, 2].map(function (i) {
+                var code = Number(h[i]);
+                // 3=offline, 5=unavailable；其余状态视为在线（含未校准/降级/故障）
+                return (isFinite(code) && code !== 3 && code !== 5) ? 1 : 0;
+            });
+            var vals = [compact.a, compact.al];
+            ['f', 'g', 'w', 'e', 'rr'].forEach(function (key) {
+                if (Array.isArray(compact[key])) vals = vals.concat(compact[key]);
+            });
+            fcuOnline = vals.some(function (v) {
+                return v !== null && v !== undefined;
+            }) ? 1 : 0;
+        } else if (cooling) {
+            var channels = cooling.channels || {};
+            dpOnline = ['exhaust', 'inlet_left', 'inlet_right'].map(function (role) {
+                var ch = channels[role] || {};
+                return ch.online ? 1 : 0;
+            });
+            var fcu = cooling.fcu || {};
+            if (typeof fcu.online === 'boolean') {
+                fcuOnline = fcu.online ? 1 : 0;
+            } else {
+                var fcuVals = [
+                    fcu.airspeed_mps, fcu.altitude_m,
+                    fcu.fan_rpm_left, fcu.fan_rpm_right,
+                    fcu.grille_deg_left, fcu.grille_deg_right,
+                    fcu.gen_power_left_kw, fcu.gen_power_right_kw,
+                    fcu.gen_rpm_left, fcu.gen_rpm_right
+                ];
+                if (Array.isArray(fcu.rotor_group_rpm)) {
+                    fcuVals = fcuVals.concat(fcu.rotor_group_rpm);
+                }
+                fcuOnline = fcuVals.some(function (v) {
+                    return v !== null && v !== undefined;
+                }) ? 1 : 0;
+            }
+        } else {
+            dpOnline = [0, 0, 0];
+            fcuOnline = 0;
+        }
+    }
+
     function handleMessage(topic, payload) {
         var msg;
         try {
@@ -488,11 +579,13 @@ safe-buffer/index.js:
             var decoded = decodeCompact(msg);
             dataList = decoded.data;
             rotorRpm = decoded.rotorRpm;
+            updateCoolingStatus(msg.c || null, null);
         } else {
             dataList = msg.data;
             if (msg.cooling && msg.cooling.fcu) {
                 rotorRpm = msg.cooling.fcu.rotor_group_rpm;
             }
+            updateCoolingStatus(null, msg.cooling || null);
         }
 
         if (rotorRpm) {
@@ -526,7 +619,8 @@ safe-buffer/index.js:
     }
 
     function storeCurrentData() {
-        var row = [Date.now()];
+        var now = Date.now();
+        var row = [now];
         for (var i = 1; i <= 12; i++) {
             var d = sensorData[i];
             row.push(
@@ -538,6 +632,16 @@ safe-buffer/index.js:
                 statusMap[d.status] || d.status
             );
         }
+        // 12 路振动传感器在线状态：0=离线，1=在线
+        for (var i = 1; i <= 12; i++) {
+            row.push(sensorData[i].online ? 1 : 0);
+        }
+        // 3 路差压 + FCU 在线状态；冷却数据超时后统一记 0
+        var coolFresh = lastCoolingAt && (now - lastCoolingAt <= TIMEOUT_MS);
+        for (var j = 0; j < 3; j++) {
+            row.push(coolFresh ? dpOnline[j] : 0);
+        }
+        row.push(coolFresh ? fcuOnline : 0);
         storedData.push(row.join(','));
         if (storedData.length > 10000) storedData.splice(0, 1000);
     }
@@ -554,6 +658,15 @@ safe-buffer/index.js:
                 'id' + i + '_kurt', 'id' + i + '_score', 'id' + i + '_status'
             );
         }
+        for (var i = 1; i <= 12; i++) {
+            header.push('id' + i + '_online');
+        }
+        header.push(
+            'cool_dp_exhaust_online',
+            'cool_dp_inlet_left_online',
+            'cool_dp_inlet_right_online',
+            'fcu_online'
+        );
         var content = [header.join(',')].concat(storedData).join('\n');
         var blob = new Blob(['﻿' + content], { type: 'text/csv;charset=utf-8;' });
         var link = document.createElement('a');
